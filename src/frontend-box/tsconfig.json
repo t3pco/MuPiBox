@@ -15,7 +15,8 @@
     "useDefineForClassFields": false,
     "paths": {
       "@backend-api/*": ["../backend-api/src/models/*"]
-    }
+    },
+    "skipLibCheck": true
   },
   "angularCompilerOptions": {
     "fullTemplateTypeCheck": true,
