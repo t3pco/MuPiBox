@@ -6,10 +6,27 @@ ion-back-button {
 
 .player-content {
     --padding-top: 0;
+    --padding-bottom: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.player-content ion-grid {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.player-content ion-row {
+    align-items: flex-start;
+}
+
+.player-content ion-col {
+    padding: 0;
 }
 
 .cover-card {
-    margin-top: 10px;
+    margin-top: 0;
     width: min(100%, 440px);
     max-width: 440px;
     background: transparent;
@@ -40,7 +57,7 @@ ion-back-button {
 
 .slider-row {
     width: min(100%, 340px);
-    margin: 8px auto 0;
+    margin: 4px auto 0;
     padding: 0 10px;
     box-sizing: border-box;
     display: block;
