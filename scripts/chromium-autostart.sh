@@ -21,10 +21,7 @@ eval $(/usr/bin/jq -r '
   AUDIO_DEVICE='\''" + (.mupibox.audioDevice | tostring) + "'\''"
 ' "${CONFIG}")
 
-CACHE_SIZE=$(( ${CACHE_SIZE:-32} * 1024 * 1024 ))
-
-# OPTIMIZATION 2: Force cache to RAM if not explicitly overridden, or update your JSON config to use /dev/shm
-CACHE_PATH="/dev/shm/chromium_cache" 
+CACHE_SIZE=$(( $CACHE_SIZE * 1024 * 1024))
 
 CHROMIUM_OPTS="--fast --fast-start --skip-gpu-data-loading"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-dev-shm-usage --renderer-process-limit=4 --js-flags=--max-old-space-size=128"
@@ -54,8 +51,7 @@ if [ "${KIOSK}" = "true" ] ; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --kiosk --start-fullscreen --start-maximized"
 fi
 
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_PATH} --disk-cache-size=${CACHE_SIZE}"
-
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_PATH:-/home/dietpi/.mupibox/chromium_cache} --disk-cache-size=${CACHE_SIZE:-33554432}"
 if [ "${DEBUG}" = "1" ]; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --enable-logging --v=1 --disable-pinch"
 fi
