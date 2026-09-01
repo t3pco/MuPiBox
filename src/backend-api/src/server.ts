@@ -1027,20 +1027,36 @@ app.post('/api/sleeptimer/start', (req, res) => {
     return
   }
   const seconds = minutes * 60
-  const cmd = `sudo pkill -f "sleep_timer.sh"; sudo rm -f /tmp/.time2sleep; sudo nohup /usr/local/bin/mupibox/./sleep_timer.sh ${seconds} > /dev/null 2>&1 &`
+
+  // Always use the installed sleep_timer.sh
+  const installedPath = '/usr/local/bin/mupibox/sleep_timer.sh'
+  if (!fs.existsSync(installedPath)) {
+    console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] sleep_timer script not found at ${installedPath}`)
+    res.status(500).json({ error: 'sleep_timer script not installed' })
+    return
+  }
+
+  const cmd = `sudo pkill -f \"sleep_timer.sh\" || true; sudo rm -f /tmp/.time2sleep || true; sudo nohup ${installedPath} ${seconds} > /dev/null 2>&1 &`
   exec(cmd, (error) => {
     if (error) {
       console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error starting sleep timer: ${error.message}`)
       res.status(500).json({ error: 'Failed to start sleep timer' })
       return
     }
-    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s)`)
+    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s) using ${installedPath}`)
     res.status(200).json({ status: 'ok', minutes, seconds })
   })
 })
 
 app.post('/api/sleeptimer/stop', (_req, res) => {
-  const cmd = 'sudo pkill -f "sleep_timer.sh"; sudo rm -f /tmp/.time2sleep'
+  const installedPath = '/usr/local/bin/mupibox/sleep_timer.sh'
+  if (!fs.existsSync(installedPath)) {
+    console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] sleep_timer script not found at ${installedPath}`)
+    res.status(500).json({ error: 'sleep_timer script not installed' })
+    return
+  }
+
+  const cmd = `sudo pkill -f \"sleep_timer.sh\" || true; sudo rm -f /tmp/.time2sleep || true`
   exec(cmd, () => {
     console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer stopped`)
     res.status(200).json({ status: 'ok' })

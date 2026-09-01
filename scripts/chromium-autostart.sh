@@ -14,7 +14,7 @@ RES_X=$(/usr/bin/jq -r .chromium.resX ${CONFIG})
 RES_Y=$(/usr/bin/jq -r .chromium.resY ${CONFIG})
 DEBUG=$(/usr/bin/jq -r .chromium.debug ${CONFIG})
 FORCE_GPU=$(/usr/bin/jq -r .chromium.gpu ${CONFIG})
-SCROLL_ANIMATION=$(/usr/bin/jq -r .chromium.sccrollanimation ${CONFIG})
+SCROLL_ANIMATION=$(/usr/bin/jq -r .chromium.scrollanimation ${CONFIG})
 CACHE_PATH=$(/usr/bin/jq -r .chromium.cachepath ${CONFIG})
 CACHE_SIZE=$(/usr/bin/jq -r .chromium.cachesize ${CONFIG})
 CACHE_SIZE=$(( $CACHE_SIZE * 1024 * 1024))
@@ -22,8 +22,9 @@ KIOSK=$(/usr/bin/jq -r .chromium.kiosk ${CONFIG})
 CHROMIUM_OPTS=""
 
 # Fast feedback and low-spec optimization (RPi 3 / 1GB RAM)
+# Keep startup flags minimal; reduce renderer processes and JS heap to fit 1GB RAM
 CHROMIUM_OPTS="--fast --fast-start --skip-gpu-data-loading"
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-dev-shm-usage --renderer-process-limit=4 --js-flags=--max-old-space-size=256"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-dev-shm-usage --renderer-process-limit=4 --js-flags=--max-old-space-size=128"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --no-first-run --no-default-browser-check --password-store=basic"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-extensions --disable-component-extensions-with-background-pages"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-background-networking --disable-sync --disable-translate"
@@ -32,6 +33,9 @@ CHROMIUM_OPTS="${CHROMIUM_OPTS} --hide-scrollbars"
 # FORCE GPU Settings
 if ${FORCE_GPU} ; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --ignore-gpu-blocklist --enable-gpu --use-gl=egl --enable-unsafe-webgpu --enable-gpu-rasterization"
+else
+        # On low-end Pi 3 the GPU path can be slower or unstable; disable GPU unless explicitly requested
+        CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-gpu --disable-software-rasterizer"
 fi
 # Enable smooth scrolling animation
 if ${SCROLL_ANIMATION} ; then
@@ -71,7 +75,9 @@ STARTX='xinit'
 [ "$USER" = 'root' ] || STARTX='startx'
 
 #sudo nice -n -19 sudo -u dietpi xinit "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "${URL:-http://MuPiBox:8200}" -- -nocursor tty2 &
-exec "$STARTX" "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "http://localhost:8200/" -- -nocursor vt$(fgconsole) &
+# Start X/Chromium in background so the script can continue with other startup tasks (sound, bluetooth, renice, VNC)
+"$STARTX" "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "http://localhost:8200/" -- -nocursor vt$(fgconsole) &
+CHROMIUM_PID=$!
 
 # BLUETOOTH
 pactl load-module module-bluetooth-discover
@@ -82,22 +88,18 @@ START_VOLUME=$(/usr/bin/jq -r .mupibox.startVolume ${CONFIG})
 AUDIO_DEVICE=$(/usr/bin/jq -r .mupibox.audioDevice ${CONFIG})
 /usr/bin/pactl set-sink-volume @DEFAULT_SINK@ ${START_VOLUME}%
 /usr/bin/mplayer -volume 100 ${START_SOUND} &
-pgrep -f "chromium-browser" | while read -r pid; do
-    # Setze die Priorität für jeden Prozess neu
+
+# Give Chromium and NodeJS processes higher priority (if present)
+pgrep -f "chromium-browser" 2>/dev/null | while read -r pid; do
     sudo renice -n -10 -p "$pid"
-done
-pgrep -f "node  " | while read -r pid; do
-    # Setze die Priorität für jeden Prozess neu
+done || true
+pgrep -f "node  " 2>/dev/null | while read -r pid; do
     sudo renice -n -10 -p "$pid"
-done
-pgrep -f "chromium-browser" | while read -r pid; do
-    # Setze die Priorität für jeden Prozess neu
-    sudo renice -n -10 -p "$pid"
-done
+done || true
 
 # Delayed VNC startup so it doesn't fight Chromium for CPU during boot
 (
-    sleep 15
+    sleep 20
     x11vnc -ncache 0 -forever -display :0 &
 ) &
 clear

@@ -187,25 +187,27 @@ const currentMeta = {
   volume: 0,
 }
 
-function writeplayerstatePlay() {
+function writeplayerstatePlay(callerInfo) {
   playerstate = 'play'
   fs.writeFile('/tmp/playerstate', playerstate, (err) => {
     if (err) {
       console.error(err)
       return
     }
-    log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Write play to /tmp/playerstate`)
+    const stack = (new Error().stack || '').split('\n').slice(2,6).join(' | ')
+    log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Write play to /tmp/playerstate${callerInfo ? ' (info: '+callerInfo+')' : ''} | stack: ${stack}`)
   })
 }
 
-function writeplayerstatePause() {
+function writeplayerstatePause(callerInfo) {
   playerstate = 'pause'
   fs.writeFile('/tmp/playerstate', playerstate, (err) => {
     if (err) {
       console.error(err)
       return
     }
-    log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Write play to /tmp/playerstate`)
+    const stack = (new Error().stack || '').split('\n').slice(2,6).join(' | ')
+    log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Write pause to /tmp/playerstate${callerInfo ? ' (info: '+callerInfo+')' : ''} | stack: ${stack}`)
   })
 }
 
