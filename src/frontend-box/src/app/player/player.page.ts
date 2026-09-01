@@ -377,7 +377,7 @@ export class PlayerPage implements OnInit, OnDestroy {
           inputs: [
             {
               name: 'minutes',
-              type: 'tel',
+              type: 'number',
               value: '60',
               placeholder: 'Minutes (e.g. 60)',
               min: 1,
