@@ -456,7 +456,7 @@ rm -Rf /home/dietpi/mupibox.zip /home/dietpi/MuPiBox-* >&3 2>&3
 	THEME_FILE="/home/dietpi/.mupibox/Sonos-Kids-Controller-master/www/active_theme.css"
 	ln -sf /home/dietpi/MuPiBox/themes/blue.css ${THEME_FILE} >&3 2>&3
 	echo "Defaults:dietpi !requiretty" > /etc/sudoers.d/mupibox-dietpi >&3 2>&3
-	echo "dietpi ALL=(ALL) NOPASSWD: /usr/bin/pkill -f /usr/local/bin/mupibox/sleep_timer.sh, /bin/rm -f /tmp/.time2sleep, /usr/local/bin/mupibox/sleep_timer.sh" >> /etc/sudoers.d/mupibox-dietpi >&3 2>&3
+	echo "dietpi ALL=(ALL) NOPASSWD: /usr/bin/pkill -f /usr/local/bin/mupibox/sleep_timer.sh, /bin/rm -f /tmp/.time2sleep, /usr/bin/nohup /usr/local/bin/mupibox/sleep_timer.sh *" >> /etc/sudoers.d/mupibox-dietpi >&3 2>&3
 	chmod 0440 /etc/sudoers.d/mupibox-dietpi >&3 2>&3
 	visudo -cf /etc/sudoers.d/mupibox-dietpi >/dev/null 2>&1 || { echo "Failed to validate sudoers config" >&3 2>&3; }
 	mv -f ${MUPI_SRC}/config/templates/crontab.template /tmp/crontab.template >&3 2>&3
