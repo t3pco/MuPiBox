@@ -12,6 +12,8 @@ NETWORKCONFIG="/tmp/network.json"
 OLDSTATE="starting"
 TRUESTATE="online"
 FALSESTATE="offline"
+FAST_INTERVAL=2
+SLOW_INTERVAL=15
 DATA_LOCK="/tmp/.data.lock"
 RESUME_LOCK="/tmp/.resume.lock"
 
@@ -52,7 +54,8 @@ fi
 
 while true
 do
-	if ( $(/usr/bin/python3 /usr/local/bin/mupibox/check_network.py) == ${TRUESTATE} ); then
+	CHECK_RESULT=$(/usr/bin/python3 /usr/local/bin/mupibox/check_network.py 2>/dev/null)
+	if [ "${CHECK_RESULT}" = "${TRUESTATE}" ]; then
 		ONLINESTATE=${TRUESTATE}
 		if [ "${ONLINESTATE}" != "${OLDSTATE}" ]; then
 			if [ ! -f ${ACTIVE_FILE} ]; then
@@ -143,6 +146,10 @@ do
 	#	fi
 	fi
 	OLDSTATE=${ONLINESTATE}
-	
-	sleep 2
+
+	if [ "${OLDSTATE}" = "${FALSESTATE}" ] || [ "${OLDSTATE}" = "starting" ]; then
+		sleep ${FAST_INTERVAL}
+	else
+		sleep ${SLOW_INTERVAL}
+	fi
 done
