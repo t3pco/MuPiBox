@@ -8,14 +8,20 @@ ion-back-button {
     margin-top: 20px;
     width: 350px;
     height: 350px;
+    /* Make explicit room at the bottom so the progress slider can be shown */
+    padding-bottom: 48px;
+    box-sizing: border-box;
     margin-left: auto !important;
     margin-right: auto !important;
 }
 
 .cover-card img {
-    width: 350px;
+    width: 100%;
     max-width: 350px !important;
-    min-width: 350px !important;
+    height: auto;
+    /* Ensure the image doesn't overlap the bottom padding reserved for the slider */
+    max-height: calc(100% - 48px);
+    display: block;
     margin: 0 auto !important;
 }
 
