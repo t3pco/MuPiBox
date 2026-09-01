@@ -15,26 +15,18 @@ ion-back-button {
     height: 100%;
     margin: 0;
     padding: 0;
-    display: flex;
-    align-items: center;
 }
 
 .player-content ion-row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    min-height: 100%;
+    align-items: flex-start;
 }
 
 .player-content ion-col {
     padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .cover-card {
-    margin-top: 0;
+    margin-top: 15px;
     width: min(100%, 440px);
     max-width: 440px;
     background: transparent;
@@ -48,7 +40,7 @@ ion-back-button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .cover-card img {
@@ -65,7 +57,7 @@ ion-back-button {
 
 .slider-row {
     width: min(100%, 340px);
-    margin: 4px auto 0;
+    margin: 8px auto 0;
     padding: 0 10px;
     box-sizing: border-box;
     display: block;
@@ -110,7 +102,7 @@ ion-back-button {
 
 .controls {
     .controls-row {
-        margin-top: 10px;
+        margin-top: 12px;
 
         ion-button {
             --padding-start: 35px;
