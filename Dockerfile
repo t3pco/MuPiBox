@@ -134,7 +134,7 @@ RUN unzip $mupisrc/AdminInterface/release/www.zip -d /var/www/html
 RUN ln -s /home/dietpi/MuPiBox/media/cover /var/www/cover
 
 # Rights etc. for www-data.
-RUN echo "www-data ALL=(ALL:ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/www-data
+RUN printf '%s\n' "Defaults:dietpi !requiretty" > /etc/sudoers.d/mupibox-dietpi && printf '%s\n' "dietpi ALL=(ALL) NOPASSWD: /usr/bin/pkill -f /usr/local/bin/mupibox/sleep_timer.sh, /bin/rm -f /tmp/.time2sleep, /usr/local/bin/mupibox/sleep_timer.sh" >> /etc/sudoers.d/mupibox-dietpi && chmod 0440 /etc/sudoers.d/mupibox-dietpi
 RUN chown -R www-data:www-data /var/www/
 RUN chmod -R 755 /var/www/
 RUN chown -R dietpi:www-data /home/dietpi/MuPiBox/media/cover
