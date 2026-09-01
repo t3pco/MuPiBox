@@ -144,5 +144,5 @@ do
 	fi
 	OLDSTATE=${ONLINESTATE}
 	
-	sleep 10
+	sleep 2
 done
