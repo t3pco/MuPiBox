@@ -1,4 +1,4 @@
-import { exec, spawn } from 'node:child_process'
+import { exec } from 'node:child_process'
 import dns from 'node:dns'
 import fs from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -32,6 +32,15 @@ if (!productionServe) {
 async function readJsonFile(path: string) {
   const file = await readFile(path, 'utf8')
   return JSON.parse(file)
+}
+
+const isRootUser = () => typeof process.getuid === 'function' && process.getuid() === 0
+
+const runAsRoot = (command: string) => {
+  if (isRootUser()) {
+    return command
+  }
+  return `sudo -n sh -c '${command.replace(/'/g, "'\\''")}'`
 }
 
 let config: ServerConfig | undefined
@@ -1036,20 +1045,16 @@ app.post('/api/sleeptimer/start', (req, res) => {
     return
   }
 
-  const child = spawn(installedPath, [String(seconds)], {
-    detached: true,
-    stdio: 'ignore',
+  const cmd = runAsRoot(`pkill -f "/usr/local/bin/mupibox/sleep_timer.sh" || true; rm -f /tmp/.time2sleep || true; nohup ${installedPath} ${seconds} > /dev/null 2>&1 &`)
+  exec(cmd, (error) => {
+    if (error) {
+      console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error starting sleep timer: ${error.message}`)
+      res.status(500).json({ error: 'Failed to start sleep timer' })
+      return
+    }
+    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s) using ${installedPath}`)
+    res.status(200).json({ status: 'ok', minutes, seconds })
   })
-  child.unref()
-
-  child.on('error', (error) => {
-    console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error launching sleep timer: ${error.message}`)
-    res.status(500).json({ error: 'Failed to start sleep timer' })
-    return
-  })
-
-  console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s) using ${installedPath}`)
-  res.status(200).json({ status: 'ok', minutes, seconds })
 })
 
 app.post('/api/sleeptimer/stop', (_req, res) => {
@@ -1060,7 +1065,8 @@ app.post('/api/sleeptimer/stop', (_req, res) => {
     return
   }
 
-  exec('pkill -f "/usr/local/bin/mupibox/sleep_timer.sh" || true; rm -f /tmp/.time2sleep || true', (error) => {
+  const cmd = runAsRoot('pkill -f "/usr/local/bin/mupibox/sleep_timer.sh" || true; rm -f /tmp/.time2sleep || true')
+  exec(cmd, (error) => {
     if (error) {
       console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error stopping sleep timer: ${error.message}`)
       res.status(500).json({ error: 'Failed to stop sleep timer' })
