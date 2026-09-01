@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process'
+import { exec, spawn } from 'node:child_process'
 import dns from 'node:dns'
 import fs from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -1036,16 +1036,20 @@ app.post('/api/sleeptimer/start', (req, res) => {
     return
   }
 
-  const cmd = `sudo pkill -f \"sleep_timer.sh\" || true; sudo rm -f /tmp/.time2sleep || true; sudo nohup ${installedPath} ${seconds} > /dev/null 2>&1 &`
-  exec(cmd, (error) => {
-    if (error) {
-      console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error starting sleep timer: ${error.message}`)
-      res.status(500).json({ error: 'Failed to start sleep timer' })
-      return
-    }
-    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s) using ${installedPath}`)
-    res.status(200).json({ status: 'ok', minutes, seconds })
+  const child = spawn(installedPath, [String(seconds)], {
+    detached: true,
+    stdio: 'ignore',
   })
+  child.unref()
+
+  child.on('error', (error) => {
+    console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error launching sleep timer: ${error.message}`)
+    res.status(500).json({ error: 'Failed to start sleep timer' })
+    return
+  })
+
+  console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s) using ${installedPath}`)
+  res.status(200).json({ status: 'ok', minutes, seconds })
 })
 
 app.post('/api/sleeptimer/stop', (_req, res) => {
@@ -1056,8 +1060,12 @@ app.post('/api/sleeptimer/stop', (_req, res) => {
     return
   }
 
-  const cmd = `sudo pkill -f \"sleep_timer.sh\" || true; sudo rm -f /tmp/.time2sleep || true`
-  exec(cmd, () => {
+  exec('pkill -f "/usr/local/bin/mupibox/sleep_timer.sh" || true; rm -f /tmp/.time2sleep || true', (error) => {
+    if (error) {
+      console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error stopping sleep timer: ${error.message}`)
+      res.status(500).json({ error: 'Failed to stop sleep timer' })
+      return
+    }
     console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer stopped`)
     res.status(200).json({ status: 'ok' })
   })
