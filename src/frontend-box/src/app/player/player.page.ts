@@ -377,11 +377,18 @@ export class PlayerPage implements OnInit, OnDestroy {
           inputs: [
             {
               name: 'minutes',
-              type: 'number',
+              type: 'tel',
               value: '60',
               placeholder: 'Minutes (e.g. 60)',
               min: 1,
               max: 360,
+              attributes: {
+                inputmode: 'numeric',
+                pattern: '[0-9]*',
+                autocomplete: 'off',
+                autocorrect: 'off',
+                spellcheck: false,
+              },
             },
           ],
           buttons: [
@@ -392,10 +399,12 @@ export class PlayerPage implements OnInit, OnDestroy {
             {
               text: 'Start',
               handler: (data) => {
-                const mins = parseInt(data.minutes, 10)
+                const raw = String(data.minutes ?? '').replace(/[^0-9]/g, '')
+                const mins = parseInt(raw, 10)
                 if (!isNaN(mins) && mins > 0) {
                   this.startSleepTimer(mins)
                 }
+                return false
               },
             },
           ],
