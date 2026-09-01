@@ -1,8 +1,10 @@
 import { AsyncPipe } from '@angular/common'
-import { Component, OnInit, ViewChild } from '@angular/core'
+import { HttpClient } from '@angular/common/http'
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import {
+  AlertController,
   IonBackButton,
   IonButton,
   IonButtons,
@@ -21,6 +23,9 @@ import {
 import { addIcons } from 'ionicons'
 import {
   arrowBackOutline,
+  bulb,
+  bulbOutline,
+  moonOutline,
   pause,
   play,
   playBack,
@@ -28,10 +33,13 @@ import {
   playSkipBack,
   playSkipForward,
   shuffleOutline,
+  timerOutline,
   volumeHighOutline,
   volumeLowOutline,
 } from 'ionicons/icons'
-import type { Observable } from 'rxjs'
+import { Observable, Subject } from 'rxjs'
+import { takeUntil } from 'rxjs/operators'
+import { environment } from 'src/environments/environment'
 import type { AlbumStop } from '../albumstop'
 import type { CurrentMPlayer } from '../current.mplayer'
 import type { CurrentSpotify } from '../current.spotify'
@@ -65,7 +73,7 @@ import { SpotifyService } from '../spotify.service'
     IonIcon,
   ],
 })
-export class PlayerPage implements OnInit {
+export class PlayerPage implements OnInit, OnDestroy {
   @ViewChild('range', { static: false }) range: IonRange
 
   media: Media
@@ -79,6 +87,8 @@ export class PlayerPage implements OnInit {
   playing = true
   updateProgression = false
   private isExternalPlayback = false
+  private destroy$ = new Subject<void>()
+  private progressTimer: any = null
   currentPlayedSpotify: CurrentSpotify
   currentPlayedLocal: CurrentMPlayer
   showTrackNr = 0
@@ -86,10 +96,15 @@ export class PlayerPage implements OnInit {
   progress = 0
   shufflechanged = 0
   tmpProgressTime = 0
+  sleepTimerActive = false
+  sleepTimerRemainingSec = 0
+  ledActive = true
   public readonly spotify$: Observable<CurrentSpotify>
   public readonly local$: Observable<CurrentMPlayer>
 
   constructor(
+    private alertController: AlertController,
+    private http: HttpClient,
     private logService: LogService,
     private mediaService: MediaService,
     _route: ActivatedRoute,
@@ -121,6 +136,10 @@ export class PlayerPage implements OnInit {
       playBack,
       shuffleOutline,
       playForward,
+      moonOutline,
+      bulbOutline,
+      bulb,
+      timerOutline,
     })
   }
 
@@ -130,14 +149,8 @@ export class PlayerPage implements OnInit {
       this.handleExternalPlayback()
     }
 
-    this.mediaService.current$.subscribe((spotify) => {
+    this.mediaService.current$.pipe(takeUntil(this.destroy$)).subscribe((spotify) => {
       this.currentPlayedSpotify = spotify
-    })
-    this.mediaService.local$.subscribe((local) => {
-      this.currentPlayedLocal = local
-    })
-    // Use cover from CurrentSpotify for Spotify content, fallback to media.cover for other types
-    this.mediaService.current$.subscribe((spotify) => {
       if (this.media?.type === 'spotify' && spotify?.item?.album?.images?.[0]?.url) {
         this.cover = spotify.item.album.images[0].url
       } else if (this.media?.cover) {
@@ -146,9 +159,31 @@ export class PlayerPage implements OnInit {
         this.cover = '../assets/images/nocover_mupi.png'
       }
     })
-    this.mediaService.albumStop$.subscribe((albumStop) => {
+
+    this.mediaService.local$.pipe(takeUntil(this.destroy$)).subscribe((local) => {
+      this.currentPlayedLocal = local
+      if (this.media?.type !== 'spotify') {
+        if (this.media?.cover) {
+          this.cover = this.media.cover
+        } else {
+          this.cover = '../assets/images/nocover_mupi.png'
+        }
+      }
+    })
+
+    this.mediaService.albumStop$.pipe(takeUntil(this.destroy$)).subscribe((albumStop) => {
       this.albumStop = albumStop
     })
+  }
+
+  ngOnDestroy() {
+    this.updateProgression = false
+    if (this.progressTimer) {
+      clearTimeout(this.progressTimer)
+      this.progressTimer = null
+    }
+    this.destroy$.next()
+    this.destroy$.complete()
   }
 
   private handleExternalPlayback(): void {
@@ -170,7 +205,7 @@ export class PlayerPage implements OnInit {
       }
 
       // Subscribe to currentTrack$ to update when track info becomes available
-      this.spotifyService.currentTrack$.subscribe((track) => {
+      this.spotifyService.currentTrack$.pipe(takeUntil(this.destroy$)).subscribe((track) => {
         if (track && this.media.title === 'External Playback') {
           this.logService.log('[PlayerPage] Updating media object with track info:', track.name)
           this.media = this.spotifyService.createMediaFromSpotifyTrack(track)
@@ -182,21 +217,16 @@ export class PlayerPage implements OnInit {
   seek() {
     const newValue = +this.range.value
     if (this.media.type === 'spotify') {
-      const duration = this.currentPlayedSpotify?.item.duration_ms
-      this.playerService.seekPosition(duration * (newValue / 100))
+      const duration = this.currentPlayedSpotify?.item?.duration_ms || 0
+      if (duration > 0) {
+        this.playerService.seekPosition(duration * (newValue / 100))
+      }
     } else if (this.media.type === 'library' || this.media.type === 'rss') {
       this.playerService.seekPosition(newValue)
     }
   }
 
   updateProgress() {
-    this.mediaService.current$.subscribe((spotify) => {
-      this.currentPlayedSpotify = spotify
-    })
-    this.mediaService.local$.subscribe((local) => {
-      this.currentPlayedLocal = local
-    })
-
     this.playing = !this.currentPlayedLocal?.pause
     if (this.playing) {
       this.resumeTimer++
@@ -205,27 +235,33 @@ export class PlayerPage implements OnInit {
       }
     }
 
-    if (this.media.type === 'spotify') {
+    if (this.media?.type === 'spotify') {
       const seek = this.currentPlayedSpotify?.progress_ms || 0
-      if (this.currentPlayedSpotify?.item != null) {
-        this.progress = (seek / this.currentPlayedSpotify?.item.duration_ms) * 100 || 0
+      const duration = this.currentPlayedSpotify?.item?.duration_ms || 0
+      if (this.currentPlayedSpotify?.item != null && duration > 0) {
+        this.progress = (seek / duration) * 100 || 0
       }
       if (this.playing && !this.currentPlayedSpotify?.is_playing) {
         this.goBackTimer++
         if (this.goBackTimer > 10) {
           this.navController.back()
         }
+      } else {
+        this.goBackTimer = 0
       }
-      setTimeout(() => {
+      if (this.progressTimer) {
+        clearTimeout(this.progressTimer)
+      }
+      this.progressTimer = setTimeout(() => {
         if (this.updateProgression) {
           this.updateProgress()
         }
       }, 1000)
-    } else if (this.media.type === 'library' || this.media.type === 'rss') {
+    } else if (this.media?.type === 'library' || this.media?.type === 'rss') {
       const seek = this.currentPlayedLocal?.progressTime || 0
       this.progress = seek || 0
       if (
-        this.media.type === 'library' &&
+        this.media?.type === 'library' &&
         this.playing &&
         !this.currentPlayedLocal?.playing &&
         this.currentPlayedLocal?.currentTracknr === this.currentPlayedLocal?.totalTracks
@@ -234,14 +270,18 @@ export class PlayerPage implements OnInit {
         if (this.goBackTimer > 10) {
           this.navController.back()
         }
-      }
-      if (this.media.type === 'rss' && this.playing && !this.currentPlayedLocal?.playing) {
+      } else if (this.media?.type === 'rss' && this.playing && !this.currentPlayedLocal?.playing) {
         this.goBackTimer++
         if (this.goBackTimer > 100) {
           this.navController.back()
         }
+      } else {
+        this.goBackTimer = 0
       }
-      setTimeout(() => {
+      if (this.progressTimer) {
+        clearTimeout(this.progressTimer)
+      }
+      this.progressTimer = setTimeout(() => {
         if (this.updateProgression) {
           this.updateProgress()
         }
@@ -250,7 +290,12 @@ export class PlayerPage implements OnInit {
   }
 
   async ionViewWillEnter() {
+    this.progress = 0
+    this.goBackTimer = 0
     this.updateProgression = true
+    this.checkSleepTimerStatus()
+    this.checkLedStatus()
+
     if (this.resumePlay) {
       await this.resumePlayback()
     } else if (!this.isExternalPlayback) {
@@ -276,6 +321,123 @@ export class PlayerPage implements OnInit {
         }, 1000)
       }, 5000)
     }
+  }
+
+  checkSleepTimerStatus() {
+    this.http
+      .get<any>(`${environment.backend.apiUrl}/sleeptimer`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.sleepTimerActive = !!res?.active
+          this.sleepTimerRemainingSec = res?.remainingSeconds || 0
+        },
+        error: () => {},
+      })
+  }
+
+  checkLedStatus() {
+    this.http
+      .get<any>(`${environment.backend.apiUrl}/led`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.ledActive = !!res?.active
+        },
+        error: () => {},
+      })
+  }
+
+  async openSleepTimer() {
+    this.http.get<any>(`${environment.backend.apiUrl}/sleeptimer`).subscribe(async (res) => {
+      if (res?.active && res?.remainingSeconds > 0) {
+        const remainingMin = Math.ceil(res.remainingSeconds / 60)
+        const alert = await this.alertController.create({
+          header: 'Sleep Timer Active',
+          message: `Shutdown scheduled in ~${remainingMin} minute(s).`,
+          buttons: [
+            {
+              text: 'Keep Timer',
+              role: 'cancel',
+            },
+            {
+              text: 'Stop Timer',
+              role: 'destructive',
+              handler: () => {
+                this.stopSleepTimer()
+              },
+            },
+          ],
+        })
+        await alert.present()
+      } else {
+        const alert = await this.alertController.create({
+          header: 'Set Sleep Timer',
+          subHeader: 'Enter minutes until shutdown',
+          inputs: [
+            {
+              name: 'minutes',
+              type: 'number',
+              value: '60',
+              placeholder: 'Minutes (e.g. 60)',
+              min: 1,
+              max: 360,
+            },
+          ],
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel',
+            },
+            {
+              text: 'Start',
+              handler: (data) => {
+                const mins = parseInt(data.minutes, 10)
+                if (!isNaN(mins) && mins > 0) {
+                  this.startSleepTimer(mins)
+                }
+              },
+            },
+          ],
+        })
+        await alert.present()
+      }
+    })
+  }
+
+  startSleepTimer(minutes: number) {
+    this.http.post(`${environment.backend.apiUrl}/sleeptimer/start`, { minutes }).subscribe({
+      next: () => {
+        this.sleepTimerActive = true
+        this.sleepTimerRemainingSec = minutes * 60
+      },
+      error: (err) => {
+        this.logService.error('[PlayerPage] Failed to start sleep timer:', err)
+      },
+    })
+  }
+
+  stopSleepTimer() {
+    this.http.post(`${environment.backend.apiUrl}/sleeptimer/stop`, {}).subscribe({
+      next: () => {
+        this.sleepTimerActive = false
+        this.sleepTimerRemainingSec = 0
+      },
+      error: (err) => {
+        this.logService.error('[PlayerPage] Failed to stop sleep timer:', err)
+      },
+    })
+  }
+
+  toggleLed() {
+    this.http.post<any>(`${environment.backend.apiUrl}/led/toggle`, {}).subscribe({
+      next: (res) => {
+        this.ledActive = !!res?.active
+      },
+      error: (err) => {
+        this.logService.error('[PlayerPage] Failed to toggle LED:', err)
+      },
+    })
   }
 
   ionViewWillLeave() {
@@ -352,12 +514,6 @@ export class PlayerPage implements OnInit {
 
   saveResumeFiles() {
     this.resumemedia = Object.assign({}, this.media)
-    this.mediaService.current$.subscribe((spotify) => {
-      this.currentPlayedSpotify = spotify
-    })
-    this.mediaService.local$.subscribe((local) => {
-      this.currentPlayedLocal = local
-    })
     if (this.resumemedia.type === 'spotify' && this.resumemedia?.showid) {
       this.resumemedia.resumespotifytrack_number = this.currentPlayedSpotify?.item?.track_number || 1
       this.resumemedia.resumespotifyprogress_ms = this.currentPlayedSpotify?.progress_ms || 0

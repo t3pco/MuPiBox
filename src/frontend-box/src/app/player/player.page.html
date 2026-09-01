@@ -168,6 +168,19 @@
               </ion-col>
             </ion-row>
           }
+
+          <ion-row class="controls-row">
+            <ion-col size="6" class="ion-text-center">
+              <ion-button (click)="openSleepTimer()" [color]="sleepTimerActive ? 'warning' : 'light'">
+                <ion-icon slot="icon-only" name="moon-outline" class="small-icon"></ion-icon>
+              </ion-button>
+            </ion-col>
+            <ion-col size="6" class="ion-text-center">
+              <ion-button (click)="toggleLed()" [color]="ledActive ? 'light' : 'medium'">
+                <ion-icon slot="icon-only" [name]="ledActive ? 'bulb' : 'bulb-outline'" class="small-icon"></ion-icon>
+              </ion-button>
+            </ion-col>
+          </ion-row>
         </ion-grid>
       </ion-col>
     </ion-row>

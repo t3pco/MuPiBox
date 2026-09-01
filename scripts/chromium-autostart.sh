@@ -21,8 +21,14 @@ CACHE_SIZE=$(( $CACHE_SIZE * 1024 * 1024))
 KIOSK=$(/usr/bin/jq -r .chromium.kiosk ${CONFIG})
 CHROMIUM_OPTS=""
 
-# Fast feedback and process control
+# Fast feedback and low-spec optimization (RPi 3 / 1GB RAM)
 CHROMIUM_OPTS="--fast --fast-start --skip-gpu-data-loading"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-dev-shm-usage --renderer-process-limit=2 --js-flags=--max-old-space-size=256"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --no-first-run --no-default-browser-check --password-store=basic"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-extensions --disable-component-extensions-with-background-pages"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-background-networking --disable-sync --disable-translate"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-features=Translate,OptimizationHints,MediaRouter,DialMediaRouteProvider,CalculateNativeWinOcclusion,InterestFeedContentSuggestions,OverscrollHistoryNavigation"
+
 # FORCE GPU Settings
 if ${FORCE_GPU} ; then
 	CHROMIUM_OPTS="${CHROMIUM_OPTS} --ignore-gpu-blocklist --enable-gpu --use-gl=egl --enable-unsafe-webgpu --enable-gpu-rasterization"
@@ -33,8 +39,6 @@ if ${SCROLL_ANIMATION} ; then
 else
 	CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-smooth-scrolling"
 fi
-# Disable touch swipe back and forward gestures.
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-features=OverscrollHistoryNavigation"
 # Suppresses Error dialogs
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --noerrdialogs"
 # Window Settings
@@ -67,12 +71,12 @@ STARTX='xinit'
 [ "$USER" = 'root' ] || STARTX='startx'
 
 #sudo nice -n -19 sudo -u dietpi xinit "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "${URL:-http://MuPiBox:8200}" -- -nocursor tty2 &
-exec "$STARTX" "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "http://localhost:8200" -- -nocursor tty2 &
+exec "$STARTX" "$FP_CHROMIUM" $CHROMIUM_OPTS --homepage "http://localhost:8200/" -- -nocursor vt$(fgconsole) &
 
 # BLUETOOTH
 pactl load-module module-bluetooth-discover
 
-x11vnc -ncache 10 -forever -display :0 &
+x11vnc -ncache 0 -forever -display :0 &
 
 # START SOUND
 START_SOUND=$(/usr/bin/jq -r .mupibox.startSound ${CONFIG})
@@ -88,7 +92,6 @@ pgrep -f "node	" | while read -r pid; do
     # Setze die Priorität für jeden Prozess neu
     sudo renice -n -10 -p "$pid"
 done
-sleep 5
 pgrep -f "chromium-browser" | while read -r pid; do
     # Setze die Priorität für jeden Prozess neu
     sudo renice -n -10 -p "$pid"

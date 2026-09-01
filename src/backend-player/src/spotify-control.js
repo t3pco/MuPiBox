@@ -68,6 +68,13 @@ setInterval(() => {
   player.getProps(['pause'])
 }, 1000)
 
+player.on('playlist-finish', () => {
+  log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Playlist finished`)
+  currentMeta.playing = false
+  currentMeta.pause = false
+  writeplayerstatePause()
+})
+
 player.on('metadata', (val) => {
   console.log('track metadata is', val)
   //currentMeta.currentTracknr = parseInt(val.Comment?.split(',').pop(), 10);

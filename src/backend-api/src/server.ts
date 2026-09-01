@@ -998,6 +998,112 @@ app.post('/api/reboot', (_req, res) => {
   })
 })
 
+// Sleep Timer Endpoints
+app.get('/api/sleeptimer', (_req, res) => {
+  const time2sleepFile = '/tmp/.time2sleep'
+  if (fs.existsSync(time2sleepFile)) {
+    try {
+      const data = fs.readFileSync(time2sleepFile, 'utf8').trim()
+      const remainingSeconds = parseInt(data, 10)
+      if (!isNaN(remainingSeconds) && remainingSeconds > 0) {
+        res.status(200).json({
+          active: true,
+          remainingSeconds,
+          remainingMinutes: Math.ceil(remainingSeconds / 60),
+        })
+        return
+      }
+    } catch (_e) {
+      // ignore
+    }
+  }
+  res.status(200).json({ active: false, remainingSeconds: 0, remainingMinutes: 0 })
+})
+
+app.post('/api/sleeptimer/start', (req, res) => {
+  const minutes = parseInt(req.body?.minutes, 10)
+  if (isNaN(minutes) || minutes <= 0) {
+    res.status(400).json({ error: 'Invalid minutes' })
+    return
+  }
+  const seconds = minutes * 60
+  const cmd = `sudo pkill -f "sleep_timer.sh"; sudo rm -f /tmp/.time2sleep; sudo nohup /usr/local/bin/mupibox/./sleep_timer.sh ${seconds} > /dev/null 2>&1 &`
+  exec(cmd, (error) => {
+    if (error) {
+      console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error starting sleep timer: ${error.message}`)
+      res.status(500).json({ error: 'Failed to start sleep timer' })
+      return
+    }
+    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer started for ${minutes} minutes (${seconds}s)`)
+    res.status(200).json({ status: 'ok', minutes, seconds })
+  })
+})
+
+app.post('/api/sleeptimer/stop', (_req, res) => {
+  const cmd = 'sudo pkill -f "sleep_timer.sh"; sudo rm -f /tmp/.time2sleep'
+  exec(cmd, () => {
+    console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] Sleep timer stopped`)
+    res.status(200).json({ status: 'ok' })
+  })
+})
+
+// Power LED Endpoints
+app.get('/api/led', (_req, res) => {
+  exec("ps -ef | grep 'led_control' | grep -v grep", (error, stdout) => {
+    const isRunning = !error && stdout.trim().length > 0
+    res.status(200).json({ active: isRunning })
+  })
+})
+
+app.post('/api/led/toggle', (_req, res) => {
+  exec("ps -ef | grep 'led_control' | grep -v grep", (_error, stdout) => {
+    const isRunning = stdout && stdout.trim().length > 0
+    if (isRunning) {
+      // Turn off
+      exec('sudo /usr/local/bin/mupibox/./mupi_stop_led.sh', (err) => {
+        if (err) {
+          console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error stopping LED: ${err.message}`)
+          res.status(500).json({ error: 'Failed to stop LED' })
+          return
+        }
+        console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] LED turned off`)
+        res.status(200).json({ active: false })
+      })
+    } else {
+      // Turn on
+      exec('sudo nohup /usr/local/bin/mupibox/./mupi_start_led.sh > /dev/null 2>&1 &', (err) => {
+        if (err) {
+          console.error(`${new Date().toLocaleString()}: [MuPiBox-Server] Error starting LED: ${err.message}`)
+          res.status(500).json({ error: 'Failed to start LED' })
+          return
+        }
+        console.log(`${new Date().toLocaleString()}: [MuPiBox-Server] LED turned on`)
+        res.status(200).json({ active: true })
+      })
+    }
+  })
+})
+
+app.post('/api/led/off', (_req, res) => {
+  exec('sudo /usr/local/bin/mupibox/./mupi_stop_led.sh', (err) => {
+    if (err) {
+      res.status(500).json({ error: 'Failed to stop LED' })
+      return
+    }
+    res.status(200).json({ active: false })
+  })
+})
+
+app.post('/api/led/on', (_req, res) => {
+  exec('sudo nohup /usr/local/bin/mupibox/./mupi_start_led.sh > /dev/null 2>&1 &', (err) => {
+    if (err) {
+      res.status(500).json({ error: 'Failed to start LED' })
+      return
+    }
+    res.status(200).json({ active: true })
+  })
+})
+
 app.post('/api/telegram/screen', (req, res) => {
   fs.readFile(mupiboxConfigPath, 'utf8', (err, data) => {
     if (err) {
