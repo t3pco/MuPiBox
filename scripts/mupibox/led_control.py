@@ -1,15 +1,4 @@
 #!/usr/bin/python3
-"""\
-This script controls the power led.
-"""
-
-__author__ = "Olaf Splitt"
-__license__ = "GPLv3"
-__version__ = "1.0.1"
-__email__ = "splitti@mupibox.de"
-__status__ = "dev"
-
-
 import os
 import signal
 import sys
@@ -17,78 +6,75 @@ import json
 from time import sleep
 import RPi.GPIO as GPIO
 
-DEFAULT_PWM_FREQUENCY = 3000
-
+JSON_DATA_FILE = "/tmp/.power_led"
+LED_PIN = None
 
 def read_json():
     try:
         with open(JSON_DATA_FILE) as file:
-            rc = file.read()   # read first time
-        rc = json.loads(rc)
+            return json.load(file)
     except:
-        rc = "skip"
-    return rc
-
-def led_control(start, end, sleep_time):
-    if start < end:
-        cnt = +1
-    else:
-        cnt = -1
-    for x in range(start, end, cnt):
-        try:
-            POWER_LED.ChangeDutyCycle(x)
-        except:
-            pass
-        sleep(sleep_time)
-    try:
-        POWER_LED.ChangeDutyCycle(end)
-    except:
-        pass
-    print("LED Brightness = " + str(end) + "%")
+        return None
 
 def sigterm_handler(*_):
-    led_control(int(JSON_DATA["led_max_brightness"]), 0, 0.003)
-    for x in range(0, 3, +1):
-        led_control(0, int(JSON_DATA["led_max_brightness"]), 0.003)
-        led_control(int(JSON_DATA["led_max_brightness"]), 0, 0.003)
+    # Turn off LED cleanly on termination
+    global LED_PIN
+    if LED_PIN is not None:
+        try:
+            GPIO.output(LED_PIN, GPIO.LOW)
+            GPIO.cleanup()
+        except:
+            pass
     sys.exit(0)
 
-def init():
-    GPIO.setup(JSON_DATA["led_gpio"], GPIO.OUT)
-    GPIO.output(JSON_DATA["led_gpio"], GPIO.HIGH)
-    tmp = os.popen("ps -ef | grep chromium-browser | grep http | grep -v grep").read()
-    while tmp == "":
-        for x in range(0, 10, +1):
-            led_control(0, int(JSON_DATA["led_max_brightness"]), 0.003)
-            led_control(int(JSON_DATA["led_max_brightness"]), 0, 0.003)
-        tmp = os.popen("ps -ef | grep chromium-browser | grep http | grep -v grep").read()
-    led_control(0, int(JSON_DATA["led_max_brightness"]), 0.01)
-
-
 def main():
-    JSON_DATA = read_json()
-    LED_DIM_MODE_LAST = JSON_DATA["led_dim_mode"]
+    global LED_PIN
+    
+    # 1. Wait until config file exists and is valid
+    json_data = None
+    while json_data is None:
+        json_data = read_json()
+        if json_data is None:
+            sleep(1)
+            
+    LED_PIN = int(json_data["led_gpio"])
+    
+    # 2. GPIO initialization (simple ON/OFF instead of heavy PWM)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(LED_PIN, GPIO.OUT)
+    GPIO.output(LED_PIN, GPIO.HIGH) # Turn LED ON
+    
+    # 3. Wait for Chromium without CPU-heavy blink loops
+    while not os.popen("ps -ef | grep chromium-browser | grep http | grep -v grep").read().strip():
+        sleep(2)
+        
+    last_mtime = 0
+    last_dim_mode = str(json_data.get("led_dim_mode", "0"))
+
+    # 4. Main loop using mtime to avoid unnecessary file reads
     while True:
-        JSON_DATA = read_json()
-        if JSON_DATA != "skip":
-            if JSON_DATA["led_dim_mode"] == "0" and JSON_DATA["led_dim_mode"] != LED_DIM_MODE_LAST:
-                led_control(int(JSON_DATA["led_min_brightness"]), int(JSON_DATA["led_max_brightness"]), 0.02)
-            if JSON_DATA["led_dim_mode"] == "1" and JSON_DATA["led_dim_mode"] != LED_DIM_MODE_LAST:
-                led_control(int(JSON_DATA["led_max_brightness"]), int(JSON_DATA["led_min_brightness"]), 0.02)
-            LED_DIM_MODE_LAST = JSON_DATA["led_dim_mode"]
         sleep(1)
+        try:
+            current_mtime = os.path.getmtime(JSON_DATA_FILE)
+            if current_mtime != last_mtime:
+                last_mtime = current_mtime
+                json_data = read_json()
+                
+                if json_data:
+                    current_dim_mode = str(json_data.get("led_dim_mode", "0"))
+                    if current_dim_mode != last_dim_mode:
+                        # 0 = Bright/ON, 1 = Dimmed/OFF
+                        if current_dim_mode == "0":
+                            GPIO.output(LED_PIN, GPIO.HIGH)
+                        elif current_dim_mode == "1":
+                            GPIO.output(LED_PIN, GPIO.LOW) 
+                        last_dim_mode = current_dim_mode
+        except FileNotFoundError:
+            pass
 
 if __name__ == "__main__":
-    JSON_DATA = "skip"
-    JSON_DATA_FILE = "/tmp/.power_led"
-    while JSON_DATA == "skip":
-        JSON_DATA = read_json()
-
-    pwm_frequency = int(JSON_DATA.get("pwm_frequency", DEFAULT_PWM_FREQUENCY))
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(JSON_DATA["led_gpio"], GPIO.OUT)
-    POWER_LED = GPIO.PWM(JSON_DATA["led_gpio"], pwm_frequency)
-    POWER_LED.start(0)
-    init()
     signal.signal(signal.SIGTERM, sigterm_handler)
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sigterm_handler()

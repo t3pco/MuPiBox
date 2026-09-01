@@ -58,7 +58,7 @@ export class HomePage extends SwiperIonicEventsHelper {
   protected swiperData: Signal<SwiperData<Artist>[]>
   protected isOnline: Signal<boolean>
   protected isLoading: WritableSignal<boolean> = signal(false)
-  protected category: WritableSignal<CategoryType> = signal('audiobook')
+  protected category: WritableSignal<CategoryType> = signal('music')
 
   constructor(
     private mediaService: MediaService,

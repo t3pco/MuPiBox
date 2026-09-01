@@ -83,16 +83,17 @@
       <ion-col size="6">
         <ion-card class="cover-card">
           <img src="{{this.cover}} " draggable="false" style="-moz-user-select: none;" ondragstart="return false;">
+          <!-- Progress slider moved here so controls have more horizontal space -->
+          @if (media.type !=='radio') {
+            <ion-row class="slider-row">
+              <ion-range #range [(ngModel)]="progress" max="100" (touchend)="seek()" (mouseup)="seek()"></ion-range>
+            </ion-row>
+          }
         </ion-card>
       </ion-col>
 
       <ion-col size="6">
         <ion-grid class="controls">
-          <ion-row class="slider-row">
-            @if (media.type !=='radio') {
-              <ion-range #range [(ngModel)]="progress" max="100" (touchend)="seek()" (mouseup)="seek()"></ion-range>
-            }
-          </ion-row>
           <ion-row class="controls-row">
             <ion-col size="4" class="ion-text-center">
               <ion-button (click)="volDown()" color="light">
@@ -168,6 +169,19 @@
               </ion-col>
             </ion-row>
           }
+
+          <ion-row class="controls-row">
+            <ion-col size="6" class="ion-text-center">
+              <ion-button (click)="openSleepTimer()" [color]="sleepTimerActive ? 'warning' : 'light'">
+                <ion-icon slot="icon-only" name="moon-outline" class="small-icon"></ion-icon>
+              </ion-button>
+            </ion-col>
+            <ion-col size="6" class="ion-text-center">
+              <ion-button (click)="toggleLed()" [color]="ledActive ? 'light' : 'medium'">
+                <ion-icon slot="icon-only" [name]="ledActive ? 'bulb' : 'bulb-outline'" class="small-icon"></ion-icon>
+              </ion-button>
+            </ion-col>
+          </ion-row>
         </ion-grid>
       </ion-col>
     </ion-row>
