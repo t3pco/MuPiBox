@@ -24,7 +24,7 @@ eval $(/usr/bin/jq -r '
 CACHE_SIZE=$(( $CACHE_SIZE * 1024 * 1024))
 
 CHROMIUM_OPTS="--fast --fast-start --skip-gpu-data-loading"
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-dev-shm-usage --renderer-process-limit=4 --js-flags=--max-old-space-size=128"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --renderer-process-limit=4 --js-flags=--max-old-space-size=128"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --no-first-run --no-default-browser-check --password-store=basic"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-extensions --disable-component-extensions-with-background-pages"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-background-networking --disable-sync --disable-translate"
@@ -51,7 +51,10 @@ if [ "${KIOSK}" = "true" ] ; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --kiosk --start-fullscreen --start-maximized"
 fi
 
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_PATH:-/home/dietpi/.mupibox/chromium_cache} --disk-cache-size=${CACHE_SIZE:-33554432}"
+# use in-memory cache in /dev/shm (RAM-backed) by default
+CACHE_DIR=${CACHE_PATH:-/dev/shm/chromium_cache}
+mkdir -p "${CACHE_DIR}"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_DIR} --disk-cache-size=${CACHE_SIZE:-33554432} --media-cache-size=${CACHE_SIZE:-33554432}""
 if [ "${DEBUG}" = "1" ]; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --enable-logging --v=1 --disable-pinch"
 fi
