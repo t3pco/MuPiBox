@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms'
 import { ActivatedRoute, Router } from '@angular/router'
 import {
   AlertController,
+  ModalController,
   IonBackButton,
   IonButton,
   IonButtons,
@@ -49,6 +50,7 @@ import { MediaService } from '../media.service'
 import { MupiHatIconComponent } from '../mupihat-icon/mupihat-icon.component'
 import { PlayerCmds, PlayerService } from '../player.service'
 import { SpotifyService } from '../spotify.service'
+import { SleepTimerComponent } from '../sleeptimer.component'
 
 @Component({
   selector: 'app-player',
@@ -104,15 +106,16 @@ export class PlayerPage implements OnInit, OnDestroy {
 
   constructor(
     private alertController: AlertController,
-    private http: HttpClient,
-    private logService: LogService,
-    private mediaService: MediaService,
-    _route: ActivatedRoute,
-    private router: Router,
-    private navController: NavController,
-    private playerService: PlayerService,
-    private spotifyService: SpotifyService,
-  ) {
+      private modalController: ModalController,
+      private http: HttpClient,
+      private logService: LogService,
+      private mediaService: MediaService,
+      _route: ActivatedRoute,
+      private router: Router,
+      private navController: NavController,
+      private playerService: PlayerService,
+      private spotifyService: SpotifyService,
+    ) {
     this.spotify$ = this.mediaService.current$
     this.local$ = this.mediaService.local$
 
@@ -371,45 +374,15 @@ export class PlayerPage implements OnInit, OnDestroy {
         })
         await alert.present()
       } else {
-        const alert = await this.alertController.create({
-          header: 'Set Sleep Timer',
-          subHeader: 'Enter minutes until shutdown',
-          inputs: [
-            {
-              name: 'minutes',
-              type: 'number',
-              value: '60',
-              placeholder: 'Minutes (e.g. 60)',
-              min: 1,
-              max: 360,
-              attributes: {
-                inputmode: 'numeric',
-                pattern: '[0-9]*',
-                autocomplete: 'off',
-                autocorrect: 'off',
-                spellcheck: false,
-              },
-            },
-          ],
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel',
-            },
-            {
-              text: 'Start',
-              handler: (data) => {
-                const raw = String(data.minutes ?? '').replace(/[^0-9]/g, '')
-                const mins = parseInt(raw, 10)
-                if (!isNaN(mins) && mins > 0) {
-                  this.startSleepTimer(mins)
-                }
-                return false
-              },
-            },
-          ],
+        // open a numeric keypad modal (works in kiosk)
+        const modal = await this.modalController.create({
+          component: SleepTimerComponent,
         })
-        await alert.present()
+        await modal.present()
+        const { data } = await modal.onDidDismiss()
+        if (data && data.minutes) {
+          this.startSleepTimer(data.minutes)
+        }
       }
     })
   }
