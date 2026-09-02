@@ -67,6 +67,29 @@ ion-toolbar {
     --max-width: 400px;
 }
 
+/* Larger sleep-timer alert input (bigger box & larger spinner arrows) */
+.sleeptimer-alert {
+  --width: 520px;
+  --min-width: 360px;
+  --max-width: 720px;
+}
+.sleeptimer-alert .alert-input {
+  font-size: 34px !important;
+  height: 64px !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+}
+.sleeptimer-alert input[type=number] {
+  font-size: 34px !important;
+  height: 64px !important;
+}
+/* enlarge native spinner buttons where supported */
+.sleeptimer-alert input[type=number]::-webkit-inner-spin-button,
+.sleeptimer-alert input[type=number]::-webkit-outer-spin-button {
+  width: 36px !important;
+  height: 36px !important;
+}
+
 .alert-button {
     font-size: 18px !important;
 }
