@@ -54,7 +54,7 @@ fi
 # use in-memory cache in /dev/shm (RAM-backed) by default
 CACHE_DIR=/dev/shm/chromium_cache
 mkdir -p "${CACHE_DIR}"
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_DIR} --disk-cache-size=${CACHE_SIZE:-33554432}"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_DIR} --disk-cache-size=${CACHE_SIZE}"
 if [ "${DEBUG}" = "1" ]; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --enable-logging --v=1 --disable-pinch"
 fi
