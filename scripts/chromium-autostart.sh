@@ -51,10 +51,7 @@ if [ "${KIOSK}" = "true" ] ; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --kiosk --start-fullscreen --start-maximized"
 fi
 
-# use in-memory cache in /dev/shm (RAM-backed) by default
-CACHE_DIR=/dev/shm/chromium_cache
-mkdir -p "${CACHE_DIR}"
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_DIR} --disk-cache-size=${CACHE_SIZE}"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --disk-cache-dir=${CACHE_PATH:-/home/dietpi/.mupibox/chromium_cache} --disk-cache-size=${CACHE_SIZE:-33554432}"
 if [ "${DEBUG}" = "1" ]; then
         CHROMIUM_OPTS="${CHROMIUM_OPTS} --enable-logging --v=1 --disable-pinch"
 fi
