@@ -44,37 +44,14 @@ const spotifyApi = new SpotifyWebApi({
   refreshToken: config.spotify.refreshToken,
 })
 
+/* sets and refreshes access token every hour */
+refreshToken()
+setInterval(refreshToken, 1000 * 60 * 60)
+
 const apiAccessToken = {
   accessToken: null,
   expires: Date.now(),
 }
-
-let accessTokenPromise = null
-
-/* Share one refresh promise so playback cannot race the initial token setup. */
-function ensureAccessToken() {
-  if (apiAccessToken.accessToken !== null && apiAccessToken.expires > Date.now()) {
-    return Promise.resolve(apiAccessToken.accessToken)
-  }
-
-  if (!accessTokenPromise) {
-    accessTokenPromise = refreshToken().finally(() => {
-      accessTokenPromise = null
-    })
-  }
-
-  return accessTokenPromise
-}
-
-/* sets and refreshes access token every hour */
-ensureAccessToken().catch((err) => {
-  log.debug(`${nowDate.toLocaleString()}: Initial access token refresh failed`, err)
-})
-setInterval(() => {
-  ensureAccessToken().catch((err) => {
-    log.debug(`${nowDate.toLocaleString()}: Scheduled access token refresh failed`, err)
-  })
-}, 1000 * 60 * 60)
 
 player.on('percent_pos', (val) => {
   //console.log('track progress is', val);
@@ -606,14 +583,7 @@ function shuffleoff() {
   )
 }
 
-async function playMe() {
-  try {
-    await ensureAccessToken()
-  } catch (err) {
-    log.debug(`${nowDate.toLocaleString()}: Cannot start Spotify playback without an access token`, err)
-    return
-  }
-
+function playMe() {
   log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Spotify play ${currentMeta.activeSpotifyId}`)
   resumeOffset = currentMeta.activeSpotifyId.split(':')[3]
   log.debug(`${nowDate.toLocaleString()}: [Spotify Control] Spotify resume ${resumeOffset}`)
