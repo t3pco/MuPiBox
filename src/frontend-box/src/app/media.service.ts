@@ -61,7 +61,8 @@ export class MediaService {
                   let trackPosition = 1
 
                   if (contextUri) {
-                    mediaInfo = await this.getMediaInfo(contextUri)
+                    mediaInfo = this.getCachedMediaInfo(contextUri)
+                    void this.getMediaInfo(contextUri)
 
                     // Calculate track/episode/chapter position based on context type
                     if (contextUri.includes('spotify:album:') && mediaInfo && mediaInfo.tracks) {
@@ -625,6 +626,11 @@ export class MediaService {
    * Get enhanced media information (total tracks/episodes/chapters) for all content types
    * Uses caching to avoid repeated API calls for the same media ID
    */
+  private getCachedMediaInfo(contextUri: string): MediaInfoCache | null {
+    const mediaId = contextUri.split(':').slice(2).join(':')
+    return this.mediaInfoCache.currentId === mediaId ? this.mediaInfoCache : null
+  }
+
   private async getMediaInfo(contextUri: string): Promise<MediaInfoCache | null> {
     const existingRequest = this.mediaInfoRequests.get(contextUri)
     if (existingRequest) {
