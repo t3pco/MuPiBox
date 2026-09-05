@@ -24,7 +24,7 @@ eval $(/usr/bin/jq -r '
 CACHE_SIZE=$(( $CACHE_SIZE * 1024 * 1024))
 
 CHROMIUM_OPTS="--fast --fast-start --skip-gpu-data-loading"
-CHROMIUM_OPTS="${CHROMIUM_OPTS} --renderer-process-limit=4 --js-flags=--max-old-space-size=128"
+CHROMIUM_OPTS="${CHROMIUM_OPTS} --renderer-process-limit=2 --js-flags=--max-old-space-size=128"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --no-first-run --no-default-browser-check --password-store=basic"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-extensions --disable-component-extensions-with-background-pages"
 CHROMIUM_OPTS="${CHROMIUM_OPTS} --disable-background-networking --disable-sync --disable-translate"
