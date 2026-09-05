@@ -29,6 +29,7 @@ export class MediaService {
 
   // Cache for album/playlist/show information (refreshes when switching media)
   private mediaInfoCache: MediaInfoCache = {}
+  private mediaInfoRequests = new Map<string, Promise<MediaInfoCache | null>>()
 
   constructor(
     private http: HttpClient,
@@ -624,19 +625,22 @@ export class MediaService {
    * Get enhanced media information (total tracks/episodes/chapters) for all content types
    * Uses caching to avoid repeated API calls for the same media ID
    */
-  private async getMediaInfo(contextUri: string): Promise<{
-    total_tracks?: number
-    total_episodes?: number
-    total_chapters?: number
-    name?: string
-    tracks?: any[]
-    episodes?: any[]
-    chapters?: any[]
-    playlist_name?: string
-    show_name?: string
-    album_name?: string
-    audiobook_name?: string
-  } | null> {
+  private async getMediaInfo(contextUri: string): Promise<MediaInfoCache | null> {
+    const existingRequest = this.mediaInfoRequests.get(contextUri)
+    if (existingRequest) {
+      return await existingRequest
+    }
+
+    const request = this.loadMediaInfo(contextUri)
+    this.mediaInfoRequests.set(contextUri, request)
+    try {
+      return await request
+    } finally {
+      this.mediaInfoRequests.delete(contextUri)
+    }
+  }
+
+  private async loadMediaInfo(contextUri: string): Promise<MediaInfoCache | null> {
     try {
       let mediaInfo: any = null
       let mediaId: string | null = null

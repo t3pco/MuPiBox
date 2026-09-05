@@ -214,7 +214,7 @@ export class SpotifyPlayerService {
   disconnect(): void {
     if (this.player) {
       this.logService.log('[Spotify SDK] Disconnecting player')
-      this.player.disconnect()
+      this.teardownPlayer()
       this.player = null
       this.deviceId = null
       this.isConnected$.next(false)
@@ -228,7 +228,7 @@ export class SpotifyPlayerService {
   private cleanupBrokenPlayer(): void {
     this.logService.warn('[Spotify SDK] Cleaning up player due to token/auth failure')
     if (this.player) {
-      this.player.disconnect()
+      this.teardownPlayer()
       this.player = null
     }
     this.deviceId = null
@@ -237,6 +237,25 @@ export class SpotifyPlayerService {
     this.playerState$.next(null)
     this.currentTrack$.next(null)
     this.previousPlayerState = null
+  }
+
+  private teardownPlayer(): void {
+    if (!this.player) {
+      return
+    }
+
+    for (const event of [
+      'ready',
+      'not_ready',
+      'initialization_error',
+      'authentication_error',
+      'account_error',
+      'playback_error',
+      'player_state_changed',
+    ]) {
+      this.player.removeListener(event)
+    }
+    this.player.disconnect()
   }
 
   // ============================================================================
