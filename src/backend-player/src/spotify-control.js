@@ -80,6 +80,7 @@ player.on('percent_pos', (val) => {
   currentMeta.progressTime = val
 })
 setInterval(() => {
+  if (currentMeta.currentPlayer === 'spotify') return
   player.getProps(['percent_pos'])
 }, 1000)
 
@@ -87,6 +88,7 @@ player.on('pause', (val) => {
   currentMeta.playing = !val
 })
 setInterval(() => {
+  if (currentMeta.currentPlayer === 'spotify') return
   player.getProps(['pause'])
 }, 1000)
 
@@ -148,6 +150,10 @@ let volumePollInFlight = false
 setInterval(() => {
   if (volumePollInFlight) return
   volumePollInFlight = true
+  if (currentMeta.currentPlayer === 'spotify') {
+    volumePollInFlight = false
+    return
+  }
   const cmdVolume = "/usr/bin/amixer sget Master | grep 'Right:'"
   const exec = require('node:child_process').exec
   exec(cmdVolume, (e, stdout, _stderr) => {

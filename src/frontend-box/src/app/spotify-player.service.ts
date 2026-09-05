@@ -40,6 +40,7 @@ export class SpotifyPlayerService {
 
   // Lock to prevent parallel ensurePlayerReady calls
   private ensurePlayerReadyPromise: Promise<boolean> | null = null
+  private currentStatePromise: Promise<SpotifyWebPlaybackState | null> | null = null
 
   // Timeout tracking to prevent ghost callbacks
   private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set()
@@ -203,12 +204,33 @@ export class SpotifyPlayerService {
       return null
     }
 
-    try {
-      return await this.player.getCurrentState()
-    } catch (error) {
-      this.logService.error('[Spotify SDK] Error getting current state:', error)
-      return null
+    if (this.currentStatePromise) {
+      return this.currentStatePromise
     }
+
+    const player = this.player
+    this.currentStatePromise = new Promise<SpotifyWebPlaybackState | null>((resolve, reject) => {
+      const timeout = setTimeout(() => resolve(null), 3000)
+      player
+        .getCurrentState()
+        .then((state) => {
+          clearTimeout(timeout)
+          resolve(state)
+        })
+        .catch((error) => {
+          clearTimeout(timeout)
+          reject(error)
+        })
+    })
+      .catch((error) => {
+        this.logService.error('[Spotify SDK] Error getting current state:', error)
+        return null
+      })
+      .finally(() => {
+        this.currentStatePromise = null
+      })
+
+    return this.currentStatePromise
   }
 
   disconnect(): void {
@@ -550,14 +572,24 @@ export class SpotifyPlayerService {
 
     // State change event
     this.player?.addListener('player_state_changed', (state: SpotifyWebPlaybackState) => {
+      if (!state?.track_window?.current_track) {
+        this.playerState$.next(state ?? null)
+        this.currentTrack$.next(null)
+        return
+      }
+
       this.playerState$.next(state)
-      this.currentTrack$.next(state.track_window.current_track)
 
       // Detect external track changes
       const currentTrack = state.track_window.current_track
       const previousTrack = this.previousPlayerState?.track_window?.current_track
+      const trackChanged = !previousTrack || previousTrack.id !== currentTrack.id
 
-      if (!state.paused && currentTrack && (!previousTrack || previousTrack.id !== currentTrack.id)) {
+      if (trackChanged) {
+        this.currentTrack$.next(currentTrack)
+      }
+
+      if (!state.paused && trackChanged) {
         this.logService.log('[Spotify SDK] Track change detected:', currentTrack.name)
         this.trackChangeDetected$.next(currentTrack)
       }

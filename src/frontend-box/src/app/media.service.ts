@@ -62,7 +62,9 @@ export class MediaService {
 
                   if (contextUri) {
                     mediaInfo = this.getCachedMediaInfo(contextUri)
-                    void this.getMediaInfo(contextUri)
+                    if (!mediaInfo) {
+                      void this.getMediaInfo(contextUri)
+                    }
 
                     // Calculate track/episode/chapter position based on context type
                     if (contextUri.includes('spotify:album:') && mediaInfo && mediaInfo.tracks) {
